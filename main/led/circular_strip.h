@@ -9,8 +9,8 @@
 #include <mutex>
 #include <vector>
 
-#define DEFAULT_BRIGHTNESS 32
-#define LOW_BRIGHTNESS 4
+#define DEFAULT_BRIGHTNESS 128
+#define LOW_BRIGHTNESS 16
 
 struct StripColor {
     uint8_t red = 0, green = 0, blue = 0;

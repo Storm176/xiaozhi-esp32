@@ -51,6 +51,7 @@ CircularStrip::~CircularStrip() {
 void CircularStrip::SetAllColor(StripColor color) {
     std::lock_guard<std::mutex> lock(mutex_);
     esp_timer_stop(strip_timer_);
+    led_strip_clear(led_strip_);
     for (int i = 0; i < max_leds_; i++) {
         colors_[i] = color;
         led_strip_set_pixel(led_strip_, i, color.red, color.green, color.blue);
@@ -61,6 +62,7 @@ void CircularStrip::SetAllColor(StripColor color) {
 void CircularStrip::SetSingleColor(uint8_t index, StripColor color) {
     std::lock_guard<std::mutex> lock(mutex_);
     esp_timer_stop(strip_timer_);
+    led_strip_clear(led_strip_);
     colors_[index] = color;
     led_strip_set_pixel(led_strip_, index, color.red, color.green, color.blue);
     led_strip_refresh(led_strip_);
@@ -73,6 +75,7 @@ void CircularStrip::Blink(StripColor color, int interval_ms) {
     StartStripTask(interval_ms, [this]() {
         static bool on = true;
         if (on) {
+            led_strip_clear(led_strip_);
             for (int i = 0; i < max_leds_; i++) {
                 led_strip_set_pixel(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue);
             }
@@ -87,6 +90,7 @@ void CircularStrip::Blink(StripColor color, int interval_ms) {
 void CircularStrip::FadeOut(int interval_ms) {
     StartStripTask(interval_ms, [this]() {
         bool all_off = true;
+        led_strip_clear(led_strip_);
         for (int i = 0; i < max_leds_; i++) {
             colors_[i].red /= 2;
             colors_[i].green /= 2;
@@ -136,10 +140,11 @@ void CircularStrip::Breathe(StripColor low, StripColor high, int interval_ms) {
                 increase = true;
             }
         }
+        led_strip_clear(led_strip_);
         for (int i = 0; i < max_leds_; i++) {
             led_strip_set_pixel(led_strip_, i, color.red, color.green, color.blue);
         }
-        led_strip_refresh(led_strip_);
+        // led_strip_refresh(led_strip_);
     });
 }
 
@@ -156,6 +161,7 @@ void CircularStrip::Scroll(StripColor low, StripColor high, int length, int inte
             int i = (offset + j) % max_leds_;
             colors_[i] = high;
         }
+        led_strip_clear(led_strip_);
         for (int i = 0; i < max_leds_; i++) {
             led_strip_set_pixel(led_strip_, i, colors_[i].red, colors_[i].green, colors_[i].blue);
         }
@@ -187,40 +193,51 @@ void CircularStrip::OnStateChanged() {
     auto device_state = app.GetDeviceState();
     switch (device_state) {
         case kDeviceStateStarting: {
-            StripColor low = { 0, 0, 0 };
-            StripColor high = { low_brightness_, low_brightness_, default_brightness_ };
-            Scroll(low, high, 3, 100);
+            ESP_LOGI(TAG, "kDeviceStateStarting");
+            StripColor low = { 4, 4, 0 };
+            StripColor high = { 64, 64, 0 };
+            Scroll(low, high, 4, 1000);
             break;
         }
         case kDeviceStateWifiConfiguring: {
-            StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
+            ESP_LOGI(TAG, "kDeviceStateWifiConfiguring");
+            StripColor color = { 64, 0, 0 };
             Blink(color, 500);
             break;
         }
-        case kDeviceStateIdle:
-            FadeOut(50);
+        case kDeviceStateIdle: {
+            ESP_LOGI(TAG, "kDeviceStateIdle");
+            StripColor low = { 0, 8, 8 };
+            StripColor high = { 0, 128, 128 };
+            Breathe(low, high, 50);
             break;
+        }
         case kDeviceStateConnecting: {
-            StripColor color = { low_brightness_, low_brightness_, default_brightness_ };
+            ESP_LOGI(TAG, "kDeviceStateConnecting");
+            StripColor color = { 0, 64, 64 };
             SetAllColor(color);
             break;
         }
         case kDeviceStateListening: {
-            StripColor color = { default_brightness_, low_brightness_, low_brightness_ };
+            ESP_LOGI(TAG, "kDeviceStateListening");
+            StripColor color = { 0, 64, 0 };
             SetAllColor(color);
             break;
         }
         case kDeviceStateSpeaking: {
-            StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
+            ESP_LOGI(TAG, "kDeviceStateSpeaking");
+            StripColor color = { 0, 0, 64 };
             SetAllColor(color);
             break;
         }
         case kDeviceStateUpgrading: {
+            ESP_LOGI(TAG, "kDeviceStateUpgrading");
             StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
             Blink(color, 100);
             break;
         }
         case kDeviceStateActivating: {
+            ESP_LOGI(TAG, "kDeviceStateActivating");
             StripColor color = { low_brightness_, default_brightness_, low_brightness_ };
             Blink(color, 500);
             break;
