@@ -15,7 +15,7 @@ private:
 #ifdef CONFIG_IDF_TARGET_ESP32
     gpio_num_t gpio_num_ = GPIO_NUM_12;
 #else
-    gpio_num_t gpio_num_ = GPIO_NUM_18;
+    gpio_num_t gpio_num_ = GPIO_NUM_14;
 #endif
     bool power_ = false;
 
@@ -41,12 +41,12 @@ public:
         });
 
         // 定义设备可以被远程执行的指令
-        methods_.AddMethod("TurnOn", "打开灯", ParameterList(), [this](const ParameterList& parameters) {
+        methods_.AddMethod("TurnOn", "打开指示灯", ParameterList(), [this](const ParameterList& parameters) {
             power_ = true;
             gpio_set_level(gpio_num_, 1);
         });
 
-        methods_.AddMethod("TurnOff", "关闭灯", ParameterList(), [this](const ParameterList& parameters) {
+        methods_.AddMethod("TurnOff", "关闭指示灯", ParameterList(), [this](const ParameterList& parameters) {
             power_ = false;
             gpio_set_level(gpio_num_, 0);
         });
