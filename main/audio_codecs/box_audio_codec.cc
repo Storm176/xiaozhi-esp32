@@ -7,7 +7,7 @@
 static const char TAG[] = "BoxAudioCodec";
 
 BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int output_sample_rate,
-    gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din,
+    gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t mclk2, gpio_num_t bclk2, gpio_num_t ws2,gpio_num_t dout, gpio_num_t din,
     gpio_num_t pa_pin, uint8_t es8311_addr, uint8_t es7210_addr, bool input_reference) {
     duplex_ = true; // 是否双工
     input_reference_ = input_reference; // 是否使用参考输入，实现回声消除
@@ -15,7 +15,7 @@ BoxAudioCodec::BoxAudioCodec(void* i2c_master_handle, int input_sample_rate, int
     input_sample_rate_ = input_sample_rate;
     output_sample_rate_ = output_sample_rate;
 
-    CreateDuplexChannels(mclk, bclk, ws, dout, din);
+    CreateDuplexChannels(mclk, bclk, ws, mclk2, bclk2, ws2, dout, din);
 
     // Do initialize of related interface: data_if, ctrl_if and gpio_if
     audio_codec_i2s_cfg_t i2s_cfg = {
@@ -90,7 +90,7 @@ BoxAudioCodec::~BoxAudioCodec() {
     audio_codec_delete_data_if(data_if_);
 }
 
-void BoxAudioCodec::CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t dout, gpio_num_t din) {
+void BoxAudioCodec::CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_num_t ws, gpio_num_t mclk2, gpio_num_t bclk2, gpio_num_t ws2, gpio_num_t dout, gpio_num_t din) {
     assert(input_sample_rate_ == output_sample_rate_);
 
     i2s_chan_config_t chan_cfg = {
@@ -160,9 +160,9 @@ void BoxAudioCodec::CreateDuplexChannels(gpio_num_t mclk, gpio_num_t bclk, gpio_
             .total_slot = I2S_TDM_AUTO_SLOT_NUM
         },
         .gpio_cfg = {
-            .mclk = mclk,
-            .bclk = bclk,
-            .ws = ws,
+            .mclk = mclk2,
+            .bclk = bclk2,
+            .ws = ws2,
             .dout = I2S_GPIO_UNUSED,
             .din = din,
             .invert_flags = {
