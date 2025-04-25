@@ -6,6 +6,7 @@
 #include "config.h"
 #include "iot/thing_manager.h"
 #include "led/circular_strip.h"
+#include "assets/lang_config.h"
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -19,10 +20,25 @@
 LV_FONT_DECLARE(font_puhui_16_4);
 LV_FONT_DECLARE(font_awesome_16_4);
 
+/* ADC Buttons */
+typedef enum {
+    BSP_ADC_BUTTON_REC,        // 2.41V
+    BSP_ADC_BUTTON_MODE,       // 1.98V
+    BSP_ADC_BUTTON_PLAY,       // 1.65V
+    BSP_ADC_BUTTON_SET,        // 1.11V
+    BSP_ADC_BUTTON_VOL_DOWN,   // 0.82V
+    BSP_ADC_BUTTON_VOL_UP,     // 0.38V
+    BSP_ADC_BUTTON_NUM
+} bsp_adc_button_t;
+
 class XyDevKitV1 : public WifiBoard {
 private:
     i2c_master_bus_handle_t codec_i2c_bus_;
     Button boot_button_;
+    Button* adc_button_[BSP_ADC_BUTTON_NUM];
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)
+    adc_oneshot_unit_handle_t bsp_adc_handle = NULL;
+#endif
     Display* display_;
 
     // I2C初始化
@@ -83,14 +99,84 @@ private:
                                     });
     }
 
+    void changeVol(int val) {
+        auto codec = GetAudioCodec();
+        auto volume = codec->output_volume() + val;
+        if (volume > 100) {
+            volume = 100;
+        }
+        if (volume < 0) {
+            volume = 0;
+        }
+        codec->SetOutputVolume(volume);
+        GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+    }
+    
+    void TogleState() {
+        auto& app = Application::GetInstance();
+        if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
+            ResetWifiConfiguration();
+        }
+        app.ToggleChatState();        
+    }
+
     void InitializeButtons() {
-        boot_button_.OnClick([this]() {
-            auto& app = Application::GetInstance();
-            if (app.GetDeviceState() == kDeviceStateStarting && !WifiStation::GetInstance().IsConnected()) {
-                ResetWifiConfiguration();
-            }
-            app.ToggleChatState();
+        button_adc_config_t adc_cfg;
+        adc_cfg.adc_channel = ADC_CHANNEL_5;
+#if ESP_IDF_VERSION >= ESP_IDF_VERSION_VAL(5, 0, 0)        
+        const adc_oneshot_unit_init_cfg_t init_config1 = {
+            .unit_id = ADC_UNIT_1,
+        };
+        adc_oneshot_new_unit(&init_config1, &bsp_adc_handle);
+        adc_cfg.adc_handle = &bsp_adc_handle;
+#endif
+        adc_cfg.button_index = BSP_ADC_BUTTON_REC;
+        adc_cfg.min = 2200;
+        adc_cfg.max = 2600;
+        adc_button_[0] = new Button(adc_cfg);
+
+        adc_cfg.button_index = BSP_ADC_BUTTON_MODE;
+        adc_cfg.min = 1800;
+        adc_cfg.max = 2100;
+        adc_button_[1] = new Button(adc_cfg);
+
+        adc_cfg.button_index = BSP_ADC_BUTTON_PLAY;
+        adc_cfg.min = 1500;
+        adc_cfg.max = 1800;
+        adc_button_[2] = new Button(adc_cfg);
+
+        adc_cfg.button_index = BSP_ADC_BUTTON_SET;
+        adc_cfg.min = 1000;
+        adc_cfg.max = 1300;
+        adc_button_[3] = new Button(adc_cfg);
+
+        adc_cfg.button_index = BSP_ADC_BUTTON_VOL_DOWN;
+        adc_cfg.min = 700;
+        adc_cfg.max = 1000;
+        adc_button_[4] = new Button(adc_cfg);
+
+        adc_cfg.button_index = BSP_ADC_BUTTON_VOL_UP;
+        adc_cfg.min = 280;
+        adc_cfg.max = 500;
+        adc_button_[5] = new Button(adc_cfg);
+
+        auto volume_up_button = adc_button_[BSP_ADC_BUTTON_VOL_UP];
+        volume_up_button->OnClick([this]() {changeVol(10);});
+        volume_up_button->OnLongPress([this]() {
+            GetAudioCodec()->SetOutputVolume(100);
+            GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
         });
+
+        auto volume_down_button = adc_button_[BSP_ADC_BUTTON_VOL_DOWN];
+        volume_down_button->OnClick([this]() {changeVol(-10);});
+        volume_down_button->OnLongPress([this]() {
+            GetAudioCodec()->SetOutputVolume(0);
+            GetDisplay()->ShowNotification(Lang::Strings::MUTED);
+        });
+
+        auto break_button = adc_button_[BSP_ADC_BUTTON_PLAY];
+        break_button->OnClick([this]() {TogleState();});
+        boot_button_.OnClick([this]() {TogleState();});
     }
 
     void InitializeIot() {
