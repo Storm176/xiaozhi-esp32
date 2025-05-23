@@ -22,13 +22,16 @@ set(SOURCES "audio_codecs/audio_codec.cc"
             "settings.cc"
             "background_task.cc"
             "main.cc"
+            "mqtt_client_custom.cc"
             )
 
 set(INCLUDE_DIRS "." "display" "audio_codecs" "protocols" "audio_processing")
 
 # 添加 IOT 相关文件
-file(GLOB IOT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/iot/things/*.cc)
-list(APPEND SOURCES ${IOT_SOURCES})
+# iot/thing.cc and iot/thing_manager.cc are already in the main SOURCES list.
+# We only need to glob for additional files in iot/things/
+file(GLOB IOT_THING_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/iot/things/*.cc)
+list(APPEND SOURCES ${IOT_THING_SOURCES})
 
 # 添加板级公共文件
 file(GLOB BOARD_COMMON_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/boards/common/*.cc)

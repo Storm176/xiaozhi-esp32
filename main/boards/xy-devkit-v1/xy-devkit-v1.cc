@@ -7,6 +7,9 @@
 #include "iot/thing_manager.h"
 #include "led/circular_strip.h"
 #include "assets/lang_config.h"
+#include "mqtt_client_custom.h" // Added for CustomMqttClient
+#include "iot/things/external_mqtt_thing.h" // For ExternalMqttThing
+#include <cJSON.h> // Required for JSON parsing in command handler
 
 #include <esp_log.h>
 #include <driver/i2c_master.h>
@@ -40,6 +43,7 @@ private:
     adc_oneshot_unit_handle_t bsp_adc_handle = NULL;
 #endif
     Display* display_;
+    CustomMqttClient* custom_mqtt_client_; // Added for CustomMqttClient
 
     // I2C初始化
     void InitializeI2c() {
@@ -179,22 +183,154 @@ private:
         boot_button_.OnClick([this]() {TogleState();});
     }
 
-    void InitializeIot() {
+    void InitializeLocalIotThings() {
         auto& thing_manager = iot::ThingManager::GetInstance();
         thing_manager.AddThing(iot::CreateThing("Speaker"));
         thing_manager.AddThing(iot::CreateThing("Screen"));
         thing_manager.AddThing(iot::CreateThing("Lamp"));
+        ESP_LOGI(TAG, "Registered local IoT things.");
+    }
+
+    void InitializeExternalIotThings() {
+        auto& thing_manager = iot::ThingManager::GetInstance();
+
+        if (custom_mqtt_client_) {
+            ESP_LOGI(TAG, "Registering ExternalMqttThings...");
+
+            // Example 1: A controllable light with custom payloads
+            auto* living_room_light = new iot::ExternalMqttThing(
+                "LivingRoomLight", 
+                "The main light in the living room, controllable via user's MQTT", 
+                custom_mqtt_client_, 
+                "myhome/livingroom/light/command", // Example command topic
+                "{\"command\":\"set\", \"value\":\"ON\"}", // Custom ON payload
+                "{\"command\":\"set\", \"value\":\"OFF\"}"  // Custom OFF payload
+            );
+            living_room_light->AddOnOffMethods();
+            thing_manager.AddThing(living_room_light);
+
+            // Example 2: A controllable fan using default payloads
+            auto* office_fan = new iot::ExternalMqttThing(
+                "OfficeFan", 
+                "The fan in the office, controllable via user's MQTT", 
+                custom_mqtt_client_, 
+                "myhome/office/fan/command" // Default payloads {"power": true} / {"power": false} will be used
+            );
+            office_fan->AddOnOffMethods();
+            thing_manager.AddThing(office_fan);
+
+        } else {
+            ESP_LOGE(TAG, "Custom MQTT client not available, cannot register ExternalMqttThings.");
+        }
+    }
+
+
+    // Method to initialize and start the custom MQTT client
+    void InitializeCustomMqttClient() {
+        ESP_LOGI(TAG, "Attempting to initialize and start Custom MQTT Client...");
+        if (custom_mqtt_client_->Start()) { // Start now fetches its own config from NVS
+            ESP_LOGI(TAG, "Custom MQTT Client Started successfully.");
+            custom_mqtt_client_->OnMessageReceived = [this](const std::string& topic, const std::string& payload) {
+                ESP_LOGI(TAG, "CustomMQTT: Received on topic '%s': %s", topic.c_str(), payload.c_str());
+                cJSON *root = cJSON_Parse(payload.c_str());
+                if (!root) {
+                    ESP_LOGE(TAG, "CustomMQTT: Failed to parse JSON payload: %s", payload.c_str());
+                    return;
+                }
+
+                cJSON *command_item = cJSON_GetObjectItemCaseSensitive(root, "command");
+                if (cJSON_IsString(command_item) && (command_item->valuestring != NULL)) {
+                    std::string command_str = command_item->valuestring;
+                    ESP_LOGI(TAG, "CustomMQTT: Received command: %s", command_str.c_str());
+
+                    if (command_str == "get_status") {
+                        if (custom_mqtt_client_) {
+                            custom_mqtt_client_->PublishDetailedStatus();
+                        }
+                    } else if (command_str == "reboot") {
+                        ESP_LOGI(TAG, "CustomMQTT: Rebooting device...");
+                        // Optional: publish a "rebooting" status before restart
+                        // std::string status_topic = ""; // Need a way to get status topic here if required
+                        // if (custom_mqtt_client_ ) { //&& !status_topic.empty()) {
+                        //    custom_mqtt_client_->Publish(status_topic + "/action", "{\"action\":\"rebooting\"}", 1, false);
+                        // }
+                        // vTaskDelay(pdMS_TO_TICKS(1000)); // Short delay for MQTT message to go out
+                        esp_restart();
+                    } else if (command_str == "say_hello") {
+                        // Example: Make XiaoZhi say something via Application
+                        // This is a more advanced command, requires Application API
+                        Application::GetInstance().StartTTS("你好，我是小智，我收到了来自云平台的指令。", false);
+                        ESP_LOGI(TAG, "CustomMQTT: Attempting to say hello.");
+                        // After TTS, it might be good to publish status again or send a confirmation.
+                        // For now, just log.
+                    } else {
+                        ESP_LOGW(TAG, "CustomMQTT: Unknown command '%s'", command_str.c_str());
+                    }
+                } else {
+                    ESP_LOGW(TAG, "CustomMQTT: 'command' field not found or not a string in payload.");
+                }
+                cJSON_Delete(root);
+            };
+            custom_mqtt_client_->OnConnectionStateChanged = [this](bool connected) {
+                ESP_LOGI(TAG, "Custom MQTT Connection State Changed: %s", connected ? "Connected" : "Disconnected");
+                if (connected) {
+                    // Now that custom MQTT is connected, register external things
+                    InitializeExternalIotThings();
+                }
+                // Handle disconnection if needed (e.g., unregister things or mark them as offline)
+            };
+        } else {
+            ESP_LOGE(TAG, "Failed to start Custom MQTT Client. Check NVS settings for 'custom_mqtt' namespace (uri, cid, user, pass).");
+        }
+    }
+
+    // This method will be called by WifiStation when connected.
+    void OnWifiConnectedHandler(const std::string& ssid) {
+        ESP_LOGI(TAG, "Wi-Fi connected to SSID: %s. Initializing Custom MQTT Client...", ssid.c_str());
+        // Call the base class's OnConnected logic if it exists and is needed.
+        // Since WifiBoard::OnConnected in wifi_board.cc itself is a lambda passed to WifiStation,
+        // we just need to ensure any display/notification logic from there is replicated if desired,
+        // or call a specific base method if one were available.
+        // For now, just proceed with MQTT initialization.
+        auto display = Board::GetInstance().GetDisplay();
+        std::string notification = Lang::Strings::CONNECTED_TO;
+        notification += ssid;
+        display->ShowNotification(notification.c_str(), 5000); // Show notification for 5 seconds
+
+        InitializeCustomMqttClient(); 
+        // InitializeExternalIotThings() is now called from CustomMqttClient's OnConnectionStateChanged callback
     }
 
 public:
     // 构造函数
     XyDevKitV1() : boot_button_(BOOT_BUTTON_GPIO) {
+        custom_mqtt_client_ = new CustomMqttClient(); // Instantiate CustomMqttClient
         InitializeI2c();
         InitializeSpi();
         InitializeGc9a01Display();
         InitializeButtons();
-        InitializeIot();
+        InitializeLocalIotThings(); // Register local things that don't depend on custom MQTT
         GetBacklight()->SetBrightness(100);
+
+        // Register our Wi-Fi connected handler
+        // Note: This will overwrite the lambda set in WifiBoard::StartNetwork if not careful.
+        // The WifiStation class should support multiple handlers or chain them.
+        // For now, we assume WifiStation might call handlers in order, or this is the primary one.
+        // A better approach would be for WifiBoard to provide a virtual OnWifiConnected method.
+        // Since it doesn't, we directly set our handler.
+        // We need to ensure that essential operations from WifiBoard's original lambda are preserved if necessary.
+        // The original lambda in WifiBoard::StartNetwork() is:
+        // wifi_station.OnConnected([this](const std::string& ssid) {
+        //     auto display = Board::GetInstance().GetDisplay();
+        //     std::string notification = Lang::Strings::CONNECTED_TO;
+        //     notification += ssid;
+        //     display->ShowNotification(notification.c_str(), 30000);
+        // });
+        // We've replicated the notification part in OnWifiConnectedHandler.
+
+        WifiStation::GetInstance().OnConnected([this](const std::string& ssid) {
+            this->OnWifiConnectedHandler(ssid);
+        });
     }
 
     virtual Led* GetLed() override {
