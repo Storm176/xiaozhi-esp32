@@ -258,3 +258,59 @@ config USE_REALTIME_CHAT
         需要 ESP32 S3 与 AEC 开启，因为性能不够，不建议和微信聊天界面风格同时开启
         
 endmenu
+
+menu "XY IoT MQTT Configuration"
+
+    config XY_IOT_MQTT_ENABLE
+        bool "Enable XY IoT MQTT Client"
+        default n
+        help
+            Enable this option to connect to your custom IoT MQTT broker.
+
+    if XY_IOT_MQTT_ENABLE
+
+    config XY_IOT_MQTT_URL
+        string "MQTT Broker URL"
+        default "mqtt://your-broker-url.com"
+        help
+            URL of your MQTT broker (e.g., mqtt://host:port or mqtts://host:port for TLS).
+
+    config XY_IOT_MQTT_CLIENT_ID
+        string "Client ID"
+        default "xy-devkit-v1-device"
+        help
+            MQTT client ID for this device. Should be unique.
+
+    config XY_IOT_MQTT_USERNAME
+        string "Username"
+        default ""
+        help
+            MQTT username for authentication (optional).
+
+    config XY_IOT_MQTT_PASSWORD
+        string "Password"
+        default ""
+        help
+            MQTT password for authentication (optional).
+
+    config XY_IOT_MQTT_STATUS_TOPIC
+        string "Status Topic"
+        default "device/xy-devkit-v1/status"
+        help
+            Topic to publish device status information.
+
+    config XY_IOT_MQTT_CONTROL_TOPIC
+        string "Control Topic (Publish)"
+        default "platform/xy-devkit-v1/control"
+        help
+            Topic to publish control commands to the IoT platform.
+    
+    config XY_IOT_MQTT_COMMAND_TOPIC
+        string "Command Topic (Subscribe)"
+        default "device/xy-devkit-v1/command"
+        help
+            Topic to subscribe for commands from the IoT platform (optional).
+
+    endif # XY_IOT_MQTT_ENABLE
+
+endmenu

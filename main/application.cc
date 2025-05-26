@@ -9,6 +9,7 @@
 #include "font_awesome_symbols.h"
 #include "iot/thing_manager.h"
 #include "assets/lang_config.h"
+#include "sdkconfig.h" // For CONFIG_XY_IOT_MQTT_ENABLE
 
 #include <cstring>
 #include <esp_log.h>
@@ -60,6 +61,15 @@ Application::~Application() {
         delete background_task_;
     }
     vEventGroupDelete(event_group_);
+
+    // Cleanup XY IoT MQTT Client
+    if (this->xy_iot_mqtt_client_) {
+        ESP_LOGI(TAG, "Stopping XY IoT MQTT Client...");
+        this->xy_iot_mqtt_client_->Stop();
+        delete this->xy_iot_mqtt_client_;
+        this->xy_iot_mqtt_client_ = nullptr;
+        ESP_LOGI(TAG, "XY IoT MQTT Client stopped and deleted.");
+    }
 }
 
 void Application::CheckNewVersion() {
@@ -564,6 +574,57 @@ void Application::Start() {
     PlaySound(Lang::Sounds::P3_SUCCESS);
     
     // Enter the main event loop
+
+    #if CONFIG_XY_IOT_MQTT_ENABLE
+        ESP_LOGI(TAG, "Initializing XY IoT MQTT Client...");
+        this->xy_iot_mqtt_client_ = new XyIotMqttClient();
+        if (this->xy_iot_mqtt_client_) {
+            if (!this->xy_iot_mqtt_client_->Start()) {
+                ESP_LOGE(TAG, "Failed to start XY IoT MQTT Client. Deleting instance.");
+                delete this->xy_iot_mqtt_client_;
+                this->xy_iot_mqtt_client_ = nullptr;
+            } else {
+                ESP_LOGI(TAG, "XY IoT MQTT Client started successfully.");
+                // Register command callback for handling commands from XY IoT MQTT Platform
+                this->xy_iot_mqtt_client_->RegisterCommandCallback(
+                    [this](const std::string& topic, const std::string& payload) {
+                        ESP_LOGI(TAG, "Received command from XY IoT MQTT Platform.");
+                        ESP_LOGI(TAG, "Topic: %s", topic.c_str());
+                        ESP_LOGI(TAG, "Payload: %s", payload.c_str());
+
+                        cJSON* command_json = cJSON_Parse(payload.c_str());
+                        if (!command_json) {
+                            ESP_LOGE(TAG, "Failed to parse command payload from XY IoT MQTT: %s. Payload: %s", 
+                                     cJSON_GetErrorPtr() ? cJSON_GetErrorPtr() : "unknown error", payload.c_str());
+                            return;
+                        }
+
+                        cJSON* name_item = cJSON_GetObjectItem(command_json, "name");
+                        if (!name_item || !name_item->valuestring || strlen(name_item->valuestring) == 0) {
+                            ESP_LOGE(TAG, "Received command from XY IoT MQTT is missing 'name' field or name is empty. Payload: %s", payload.c_str());
+                            cJSON_Delete(command_json);
+                            return;
+                        }
+                        
+                        ESP_LOGI(TAG, "Dispatching command for Thing: %s to ThingManager", name_item->valuestring);
+                        // Schedule the Invoke call to be run in the main application thread if necessary,
+                        // especially if ThingManager::Invoke or specific Thing::Invoke methods have side effects
+                        // that are not thread-safe or interact with UI elements.
+                        // For now, calling directly as per original plan.
+                        iot::ThingManager::GetInstance().Invoke(command_json);
+
+                        cJSON_Delete(command_json); // Clean up cJSON object
+                    }
+                );
+                ESP_LOGI(TAG, "Registered command callback with XY IoT MQTT Client.");
+            }
+        } else {
+            ESP_LOGE(TAG, "Failed to allocate memory for XY IoT MQTT Client.");
+        }
+    #else
+        ESP_LOGI(TAG, "XY IoT MQTT Client is disabled in Kconfig.");
+    #endif
+
     MainEventLoop();
 }
 

@@ -19,6 +19,7 @@
 #include "protocol.h"
 #include "ota.h"
 #include "background_task.h"
+#include "xy_iot_mqtt/xy_iot_mqtt_client.h"
 
 #if CONFIG_USE_WAKE_WORD_DETECT
 #include "wake_word_detect.h"
@@ -73,6 +74,7 @@ public:
     void WakeWordInvoke(const std::string& wake_word);
     void PlaySound(const std::string_view& sound);
     bool CanEnterSleepMode();
+    XyIotMqttClient* GetXyIotMqttClient() { return xy_iot_mqtt_client_; }
 
 private:
     Application();
@@ -102,6 +104,7 @@ private:
     bool busy_decoding_audio_ = false;
     int clock_ticks_ = 0;
     TaskHandle_t check_new_version_task_handle_ = nullptr;
+    XyIotMqttClient* xy_iot_mqtt_client_ = nullptr;
 
     // Audio encode / decode
     TaskHandle_t audio_loop_task_handle_ = nullptr;
