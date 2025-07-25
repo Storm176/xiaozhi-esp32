@@ -706,11 +706,11 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
             AbortSpeaking(kAbortReasonNone);
         });
     } else if (device_state_ == kDeviceStateListening) {   
-        Schedule([this]() {
-            if (protocol_) {
-                protocol_->CloseAudioChannel();
-            }
-        });
+        // Schedule([this]() {
+        //     if (protocol_) {
+        //         protocol_->CloseAudioChannel();
+        //     }
+        // });
     }
 }
 

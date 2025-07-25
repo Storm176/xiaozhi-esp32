@@ -54,6 +54,7 @@ private:
     i2c_master_bus_handle_t codec_i2c_bus_;
     Button boot_button_;
     Display* display_;
+    Button asr_button_;
 
     void InitializeCodecI2c() {
         // Initialize I2C peripheral
@@ -121,10 +122,14 @@ private:
             }
             app.ToggleChatState();
         });
+        asr_button_.OnClick([this]() {
+            std::string wake_word="精灵管家";
+            Application::GetInstance().WakeWordInvoke(wake_word);
+        });
     }
 
 public:
-    MovecallMojiESP32S3() : boot_button_(BOOT_BUTTON_GPIO) {  
+    MovecallMojiESP32S3() : boot_button_(BOOT_BUTTON_GPIO), asr_button_(ASR_BUTTON_GPIO){  
         InitializeCodecI2c();
         InitializeSpi();
         InitializeGc9a01Display();
