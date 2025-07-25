@@ -133,32 +133,32 @@ private:
         adc_cfg.button_index = BSP_ADC_BUTTON_REC;
         adc_cfg.min = 2200;
         adc_cfg.max = 2600;
-        adc_button_[0] = new Button(adc_cfg);
+        adc_button_[0] = new AdcButton(adc_cfg);
 
         adc_cfg.button_index = BSP_ADC_BUTTON_MODE;
         adc_cfg.min = 1800;
         adc_cfg.max = 2100;
-        adc_button_[1] = new Button(adc_cfg);
+        adc_button_[1] = new AdcButton(adc_cfg);
 
         adc_cfg.button_index = BSP_ADC_BUTTON_PLAY;
         adc_cfg.min = 1500;
         adc_cfg.max = 1800;
-        adc_button_[2] = new Button(adc_cfg);
+        adc_button_[2] = new AdcButton(adc_cfg);
 
         adc_cfg.button_index = BSP_ADC_BUTTON_SET;
         adc_cfg.min = 1000;
         adc_cfg.max = 1300;
-        adc_button_[3] = new Button(adc_cfg);
+        adc_button_[3] = new AdcButton(adc_cfg);
 
         adc_cfg.button_index = BSP_ADC_BUTTON_VOL_DOWN;
         adc_cfg.min = 700;
         adc_cfg.max = 1000;
-        adc_button_[4] = new Button(adc_cfg);
+        adc_button_[4] = new AdcButton(adc_cfg);
 
         adc_cfg.button_index = BSP_ADC_BUTTON_VOL_UP;
         adc_cfg.min = 280;
         adc_cfg.max = 500;
-        adc_button_[5] = new Button(adc_cfg);
+        adc_button_[5] = new AdcButton(adc_cfg);
 
         auto volume_up_button = adc_button_[BSP_ADC_BUTTON_VOL_UP];
         volume_up_button->OnClick([this]() {changeVol(10);});
