@@ -22,6 +22,7 @@
 #include <ssid_manager.h>
 
 static const char *TAG = "WifiBoard";
+static bool web_server_started = false;
 
 WifiBoard::WifiBoard() {
     Settings settings("wifi", true);
@@ -97,6 +98,11 @@ void WifiBoard::StartNetwork() {
         std::string notification = Lang::Strings::CONNECTED_TO;
         notification += ssid;
         display->ShowNotification(notification.c_str(), 30000);
+        if (!web_server_started) {
+            vTaskDelay(pdMS_TO_TICKS(5000));
+            start_web_server();
+            web_server_started = true;
+        }
     });
     wifi_station.Start();
 

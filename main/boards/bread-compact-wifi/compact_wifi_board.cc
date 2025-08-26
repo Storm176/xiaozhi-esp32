@@ -34,8 +34,9 @@ private:
     Display* display_ = nullptr;
     Button boot_button_;
     Button touch_button_;
-    Button volume_up_button_;
-    Button volume_down_button_;
+    Button asr_button_;
+    // Button volume_up_button_;
+    // Button volume_down_button_;
 
     void InitializeDisplayI2c() {
         i2c_master_bus_config_t bus_config = {
@@ -120,36 +121,40 @@ private:
         touch_button_.OnPressUp([this]() {
             Application::GetInstance().StopListening();
         });
-
-        volume_up_button_.OnClick([this]() {
-            auto codec = GetAudioCodec();
-            auto volume = codec->output_volume() + 10;
-            if (volume > 100) {
-                volume = 100;
-            }
-            codec->SetOutputVolume(volume);
-            GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+        asr_button_.OnClick([this]() {
+            std::string wake_word="精灵管家";
+            Application::GetInstance().WakeWordInvoke(wake_word);
         });
 
-        volume_up_button_.OnLongPress([this]() {
-            GetAudioCodec()->SetOutputVolume(100);
-            GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
-        });
+        // volume_up_button_.OnClick([this]() {
+        //     auto codec = GetAudioCodec();
+        //     auto volume = codec->output_volume() + 10;
+        //     if (volume > 100) {
+        //         volume = 100;
+        //     }
+        //     codec->SetOutputVolume(volume);
+        //     GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+        // });
 
-        volume_down_button_.OnClick([this]() {
-            auto codec = GetAudioCodec();
-            auto volume = codec->output_volume() - 10;
-            if (volume < 0) {
-                volume = 0;
-            }
-            codec->SetOutputVolume(volume);
-            GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
-        });
+        // volume_up_button_.OnLongPress([this]() {
+        //     GetAudioCodec()->SetOutputVolume(100);
+        //     GetDisplay()->ShowNotification(Lang::Strings::MAX_VOLUME);
+        // });
 
-        volume_down_button_.OnLongPress([this]() {
-            GetAudioCodec()->SetOutputVolume(0);
-            GetDisplay()->ShowNotification(Lang::Strings::MUTED);
-        });
+        // volume_down_button_.OnClick([this]() {
+        //     auto codec = GetAudioCodec();
+        //     auto volume = codec->output_volume() - 10;
+        //     if (volume < 0) {
+        //         volume = 0;
+        //     }
+        //     codec->SetOutputVolume(volume);
+        //     GetDisplay()->ShowNotification(Lang::Strings::VOLUME + std::to_string(volume));
+        // });
+
+        // volume_down_button_.OnLongPress([this]() {
+        //     GetAudioCodec()->SetOutputVolume(0);
+        //     GetDisplay()->ShowNotification(Lang::Strings::MUTED);
+        // });
     }
 
     // 物联网初始化，逐步迁移到 MCP 协议
@@ -157,9 +162,6 @@ private:
 #if CONFIG_IOT_PROTOCOL_XIAOZHI
         auto& thing_manager = iot::ThingManager::GetInstance();
         thing_manager.AddThing(iot::CreateThing("Speaker"));
-        thing_manager.AddThing(iot::CreateThing("Lamp"));
-#elif CONFIG_IOT_PROTOCOL_MCP
-        static LampController lamp(LAMP_GPIO);
 #endif
     }
 
@@ -167,8 +169,10 @@ public:
     CompactWifiBoard() :
         boot_button_(BOOT_BUTTON_GPIO),
         touch_button_(TOUCH_BUTTON_GPIO),
-        volume_up_button_(VOLUME_UP_BUTTON_GPIO),
-        volume_down_button_(VOLUME_DOWN_BUTTON_GPIO) {
+        asr_button_(ASR_BUTTON_GPIO)
+        // volume_up_button_(VOLUME_UP_BUTTON_GPIO),
+        // volume_down_button_(VOLUME_DOWN_BUTTON_GPIO) 
+        {
         InitializeDisplayI2c();
         InitializeSsd1306Display();
         InitializeButtons();

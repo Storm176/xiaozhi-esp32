@@ -1,9 +1,5 @@
 set(SOURCES "audio_codecs/audio_codec.cc"
             "audio_codecs/no_audio_codec.cc"
-            "audio_codecs/box_audio_codec.cc"
-            "audio_codecs/es8311_audio_codec.cc"
-            "audio_codecs/es8374_audio_codec.cc"
-            "audio_codecs/es8388_audio_codec.cc"
             "audio_processing/audio_debugger.cc"
             "led/single_led.cc"
             "led/circular_strip.cc"
@@ -17,19 +13,25 @@ set(SOURCES "audio_codecs/audio_codec.cc"
             "iot/thing.cc"
             "iot/thing_manager.cc"
             "mcp_server.cc"
+            "mcp/mcp_tools.cc"
             "system_info.cc"
             "application.cc"
             "ota.cc"
             "settings.cc"
             "background_task.cc"
             "main.cc"
+            "extend/chat_web_server/web_server.cpp"
             )
 
-set(INCLUDE_DIRS "." "display" "audio_codecs" "protocols" "audio_processing")
+set(INCLUDE_DIRS "." "display" "audio_codecs" "protocols" "audio_processing" "mcp" "extend/chat_web_server")
 
 # 添加 IOT 相关文件
 file(GLOB IOT_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/iot/things/*.cc)
 list(APPEND SOURCES ${IOT_SOURCES})
+
+# 添加 MCP 工具文件 - 自动包含所有工具
+file(GLOB MCP_TOOL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/mcp/tools/*.cc)
+list(APPEND SOURCES ${MCP_TOOL_SOURCES})
 
 # 添加板级公共文件
 file(GLOB BOARD_COMMON_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/boards/common/*.cc)

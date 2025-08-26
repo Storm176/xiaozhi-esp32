@@ -506,6 +506,8 @@ void Application::Start() {
                     ESP_LOGI(TAG, "<< %s", text->valuestring);
                     Schedule([this, display, message = std::string(text->valuestring)]() {
                         display->SetChatMessage("assistant", message.c_str());
+                        // 转发到电脑屏幕显示
+                        forward_chat_message("moss", message.c_str(), "text");
                     });
                 }
             }
@@ -515,6 +517,8 @@ void Application::Start() {
                 ESP_LOGI(TAG, ">> %s", text->valuestring);
                 Schedule([this, display, message = std::string(text->valuestring)]() {
                     display->SetChatMessage("user", message.c_str());
+                    // 转发到电脑屏幕显示
+                    forward_chat_message("user", message.c_str(), "text");
                 });
             }
         } else if (strcmp(type->valuestring, "llm") == 0) {
@@ -1032,11 +1036,11 @@ void Application::WakeWordInvoke(const std::string& wake_word) {
             AbortSpeaking(kAbortReasonNone);
         });
     } else if (device_state_ == kDeviceStateListening) {   
-        // Schedule([this]() {
-        //     if (protocol_) {
-        //         protocol_->CloseAudioChannel();
-        //     }
-        // });
+        Schedule([this]() {
+            if (protocol_) {
+                protocol_->CloseAudioChannel();
+            }
+        });
     }
 }
 

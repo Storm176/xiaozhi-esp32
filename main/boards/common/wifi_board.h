@@ -2,6 +2,7 @@
 #define WIFI_BOARD_H
 
 #include "board.h"
+#include "extend/chat_web_server/web_server.h"
 
 class WifiBoard : public Board {
 protected:
